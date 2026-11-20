@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Đảo Đèn Lồng</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0714; font-family: system-ui, sans-serif; color: #ffe6b8; }
+  canvas { display: block; }
+  #hud { position: fixed; top: 12px; left: 14px; font-size: 18px; line-height: 1.6; text-shadow: 0 1px 4px #000; pointer-events: none; }
+  #hud b { color: #ffb347; }
+  #toast { position: fixed; top: 14px; left: 50%; transform: translateX(-50%); font-size: 20px; color: #ffd27a; text-shadow: 0 1px 6px #000; opacity: 0; transition: opacity .3s; pointer-events: none; }
+  #help { position: fixed; bottom: 10px; left: 14px; font-size: 13px; opacity: .75; text-shadow: 0 1px 3px #000; pointer-events: none; }
+  #end { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; flex-direction: column; background: rgba(8, 4, 16, .72); text-align: center; }
+  #end h1 { font-size: 40px; margin: 0 0 8px; color: #ffb347; }
+  #end p { font-size: 20px; margin: 4px 0; }
+  #end button { margin-top: 18px; padding: 10px 28px; font-size: 18px; border: 0; border-radius: 8px; background: #ffb347; color: #2a1200; cursor: pointer; }
+</style>
+</head>
+<body>
+<div id="hud"></div>
+<div id="toast"></div>
+<div id="help">WASD: đi · Space: nhảy · E: nạp đèn · F: tỏa sáng · ← →: xoay camera · R: chơi lại</div>
+<div id="end"><h1 id="end-title"></h1><p id="end-detail"></p><p id="end-score"></p><button id="again">Chơi lại (R)</button></div>
+<script type="importmap">{ "imports": { "three": "/node_modules/three/build/three.module.js" } }</script>
+<script type="module" src="/web/main.js"></script>
+</body>
+</html>

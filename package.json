@@ -6,7 +6,12 @@
   "description": "Dao Den Long - game 3D (Day 12 AI SDLC lab)",
   "scripts": {
     "test": "node --test \"tests/**/*.test.js\"",
-    "hello": "node src/core/hello.js"
+    "start": "node server.js",
+    "headless": "node src/headless/cli.js",
+    "proof": "node scripts/proof.mjs"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "three": "^0.170.0"
+  }
 }
