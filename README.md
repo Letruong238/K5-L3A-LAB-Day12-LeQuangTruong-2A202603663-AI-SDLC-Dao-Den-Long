@@ -1,6 +1,6 @@
 # Đảo Đèn Lồng
 
-> **Video demo:** _(chưa có: tác giả sẽ quay và gắn link vào đây, đồng thời đính kèm Release `v1.0.0` hoặc `docs/demo/demo.mp4`)_
+> **Video demo (2 phút 11 giây):** [docs/demo/demo.mp4](https://github.com/Letruong238/K5-L3A-LAB-Day12-LeQuangTruong-2A202603663-AI-SDLC-Dao-Den-Long/raw/main/docs/demo/demo.mp4)
 > Bài lab Day 12 AI SDLC, cá nhân. Tác giả: Lê Quang Trường (2A202603663). Đề bài gốc của lab: [docs/LAB-README.md](docs/LAB-README.md).
 
 ![Mây giữ ba ngọn đèn trên Đảo Bến, phụ đề cảnh báo đèn sắp cạn dầu](docs/proof/phase4/web-hud-captions.png)
