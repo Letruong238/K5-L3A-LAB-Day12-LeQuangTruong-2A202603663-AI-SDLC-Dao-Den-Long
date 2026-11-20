@@ -6,3 +6,8 @@ node_modules/
 dist/
 .DS_Store
 Thumbs.db
+# dữ liệu chạy máy cục bộ và đầu ra đo (bản chính thức nằm ở docs/proof/phase4)
+data/
+/bench.json
+/soak.json
+/out.jsonl

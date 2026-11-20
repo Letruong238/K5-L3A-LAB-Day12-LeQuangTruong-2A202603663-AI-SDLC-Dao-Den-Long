@@ -1,14 +1,15 @@
-// Tạo bằng chứng Phase 3: chạy lệnh headless THẬT (cùng lệnh giảng viên sẽ chạy) với các kịch bản,
-// kiểm tra kết quả theo yêu cầu, lưu output JSONL và bảng kết quả vào docs/proof/phase2/.
+// Tạo bằng chứng Phase 4: chạy lệnh THẬT (headless, soak, xuất bảng xếp hạng) với các kịch bản,
+// kiểm tra kết quả theo yêu cầu, lưu output và bảng kết quả vào docs/proof/phase4/.
 // Dùng: npm run proof        (chạy lại ở đúng tag thì ra cùng kết quả)
-// Bằng chứng Phase 1 và 2 nằm ở docs/proof/phase1, phase2 (sinh bởi mã ở đúng tag đó, giữ nguyên để so khớp tag).
+// Bằng chứng Phase 1 đến 3 nằm ở docs/proof/phase1, phase2, phase3 (sinh bởi mã ở đúng tag đó, giữ nguyên để so khớp tag).
+// bench.json KHÔNG sinh ở đây (cần Chrome và GPU, CI không có): chạy `npm run bench` trên máy thật rồi commit; ở đây chỉ kiểm định dạng.
 import { spawnSync } from "node:child_process";
-import { mkdirSync, writeFileSync, readFileSync, mkdtempSync } from "node:fs";
+import { mkdirSync, writeFileSync, readFileSync, mkdtempSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
 
-const OUT = "docs/proof/phase3";
+const OUT = "docs/proof/phase4";
 mkdirSync(OUT, { recursive: true });
 const tmp = mkdtempSync(join(tmpdir(), "ddl-proof-"));
 const base = { random_motes: false, random_shades: false, random_drifters: false, wind_enabled: false, motes: [], shades: [] };
@@ -137,24 +138,81 @@ if (!badOk) failed++;
 rows.push(`| W18-bad-inputs | T11 | inputs có tick trùng thì thoát mã 2, báo lỗi ra stderr | (không có file) | ${badOk ? "ĐẠT" : "KHÔNG ĐẠT"} (mã ${bad.status}) |`);
 console.log(`${badOk ? "DAT   " : "KHONG "} W18-bad-inputs`);
 
-const unit = spawnSync(process.execPath, ["--test", "tests/core.test.js", "tests/phase2.test.js", "tests/phase3.test.js", "tests/cli.test.js"], { encoding: "utf8" });
+// ---- Phase 4 ----
+const addRow = (id, req, what, out, ok, note = "") => {
+  if (!ok) failed++;
+  rows.push(`| ${id} | ${req} | ${what} | ${out} | ${ok ? "ĐẠT" : "KHÔNG ĐẠT"}${note ? " (" + note + ")" : ""} |`);
+  console.log(`${ok ? "DAT   " : "KHONG "} ${id}`);
+};
+
+// P01: soak thật (10 đêm, seed 7)
+const soakOut = join(OUT, "soak.json");
+const soak = spawnSync(process.execPath, ["scripts/soak.mjs", "--seed", "7", "--nights", "10", "--out", soakOut], { encoding: "utf8" });
+let soakNote = `thoát mã ${soak.status}`;
+let soakOk = soak.status === 0;
+if (existsSync(soakOut)) {
+  const j = JSON.parse(readFileSync(soakOut, "utf8"));
+  soakOk = soakOk && j.nights === 10 && j.crashes === 0 && j.mem_end_mb <= 1.2 * j.mem_start_mb && j.results.length === 10;
+  soakNote = `crashes ${j.crashes}, bộ nhớ ${j.mem_start_mb} → ${j.mem_end_mb} MB (tỉ lệ ${(j.mem_end_mb / j.mem_start_mb).toFixed(2)}, ngưỡng 1.20), ${j.duration_s} s, kết quả: ${j.results.join("/")}`;
+}
+addRow("P01-soak", "U5", "Soak 10 đêm liên tiếp trong một tiến trình, seed 7: 0 crash, bộ nhớ cuối ≤ 1.2 × đầu", `\`${soakOut.replaceAll("\\", "/")}\``, soakOk, soakNote);
+
+// P02: lệnh xuất bảng xếp hạng thật, đúng thứ tự
+{
+  const dir = join(tmp, "lb");
+  const lbMod = await import("../src/headless/leaderboard-store.js");
+  process.env.DDL_DATA_DIR = dir;
+  const t = new Date("2026-06-01T10:00:00+07:00").getTime();
+  for (const [i, [n, sc, nw]] of [["Binh_Minh", 850, 3], ["Dau_Tien", 400, 1], ["Ve_Sau", 400, 1], ["Dem_Mot", 0, 0], ["Mây_Nhỏ", 920, 3]].entries()) lbMod.submitScore({ name: n, score: sc, nights_won: nw, seed: 42 }, dir, new Date(t + i * 1000));
+  delete process.env.DDL_DATA_DIR;
+  const out = join(OUT, "leaderboard-export.json");
+  const r = spawnSync(process.execPath, ["server.js", "--export-leaderboard", out], { env: { ...process.env, DDL_DATA_DIR: dir }, encoding: "utf8" });
+  let ok = r.status === 0;
+  let note = `thoát mã ${r.status}`;
+  if (ok) {
+    const names = JSON.parse(readFileSync(out, "utf8")).entries.map((e) => e.name);
+    ok = JSON.stringify(names) === JSON.stringify(["Mây_Nhỏ", "Binh_Minh", "Dau_Tien", "Ve_Sau", "Dem_Mot"]);
+    note = `thứ tự: ${names.join(" > ")} (bằng điểm: ai đạt trước đứng trên)`;
+  }
+  addRow("P02-leaderboard-export", "U6", "npm start -- --export-leaderboard ra {entries} đúng thứ tự (điểm giảm dần, bằng điểm thì đạt trước đứng trên)", `\`${out.replaceAll("\\", "/")}\``, ok, note);
+}
+
+// P03: bench.json (do `npm run bench` sinh trên máy thật): kiểm định dạng và công thức, không đo lại ở đây
+{
+  const f = join(OUT, "bench.json");
+  if (!existsSync(f)) addRow("P03-bench-file", "U1", "bench.json do `npm run bench` sinh trên máy thật", "(chưa có file)", false, "chưa chạy npm run bench");
+  else {
+    const b = JSON.parse(readFileSync(f, "utf8"));
+    const keys = ["contract_version", "avg_fps", "p1_low_fps", "frame_ms_p95", "frames", "load_ms", "peak_mem_mb", "vsync_off", "renderer", "os"];
+    const ok = JSON.stringify(Object.keys(b)) === JSON.stringify(keys) && b.contract_version === "1.3" && b.frames > 0 && Math.abs(b.frames / b.avg_fps - 30) < 0.6;
+    addRow("P03-bench-file", "U1", "bench.json đúng 10 trường, contract 1.3, thời gian đo ≈ 30 s (frames / avg_fps)", `\`${f.replaceAll("\\", "/")}\``, ok, `avg_fps ${b.avg_fps}, p1_low_fps ${b.p1_low_fps}, p95 ${b.frame_ms_p95} ms, load ${b.load_ms} ms, vsync_off ${b.vsync_off} (số đo trên máy dev, không phải máy chấm)`);
+  }
+}
+
+// P04: contract v1.3
+{
+  const c = JSON.parse(readFileSync("game.contract.json", "utf8"));
+  addRow("P04-contract", "U12", "game.contract.json: contract_version 1.3 kèm bench_cmd, soak_cmd", "`game.contract.json`", c.contract_version === "1.3" && !!c.bench_cmd && !!c.soak_cmd, `${c.bench_cmd} · ${c.soak_cmd}`);
+}
+
+const unit = spawnSync(process.execPath, ["--test", "tests/core.test.js", "tests/phase2.test.js", "tests/phase3.test.js", "tests/phase4.test.js", "tests/cli.test.js"], { encoding: "utf8" });
 const pick = (k) => (unit.stdout.match(new RegExp(`ℹ ${k} (\\d+)`)) ?? [])[1] ?? "?";
 const git = (...a) => spawnSync("git", a, { encoding: "utf8" }).stdout.trim();
 const dirty = git("status", "--porcelain", "--", "src", "game.contract.json", "tests").length > 0;
 
-const md = `# Bằng chứng Phase 3 (tự sinh bởi \`npm run proof\`)
+const md = `# Bằng chứng Phase 4 (tự sinh bởi \`npm run proof\`)
 
 - Mã nguồn: commit \`${git("rev-parse", "--short", "HEAD")}\`${dirty ? " (CÓ thay đổi chưa commit ở src/tests/contract)" : ""}
 - Máy: ${process.platform} ${process.arch}, Node ${process.version}
 - Test đơn vị và scenario: ${pick("pass")}/${pick("tests")} đạt, ${pick("fail")} lỗi (\`npm test\`)
 
-Mỗi dòng dưới đây chạy lệnh headless thật (\`node src/headless/cli.js ...\`), rồi kiểm tra output theo tiêu chí T1 đến T11 trong \`docs/notes/phase3-spec.md\`.
+Dòng W01 đến W18 chạy lệnh headless thật (\`node src/headless/cli.js ...\`) để chứng minh luật Phase 3 KHÔNG đổi sau Phase 4 (tiêu chí T1 đến T11 trong \`docs/notes/phase3-spec.md\`). Dòng P01 đến P04 là phần mới của Phase 4 (tiêu chí U trong \`docs/notes/phase4-spec.md\`).
 
 | Kịch bản | Tiêu chí | Kiểm tra | Output | Kết quả |
 |---|---|---|---|---|
 ${rows.join("\n")}
 
-Bản web (T12): ảnh chụp trong thư mục này (\`web-demo-*.png\`) do Chrome chạy ngầm chụp từ bản \`npm start\` (đường tắt \`/?night=1&demo=1\`, thêm \`&cb=1\` cho bảng màu dễ phân biệt). Chưa kiểm chứng: chơi tay đủ 3 đêm với luật mới, âm thanh nghe thật, nhấp nháy 1 Hz tận mắt, và ≥ 30 FPS trên máy thật (xem README, phần "Giới hạn").
+Bản web: ảnh chụp trong thư mục này do Chrome chạy ngầm chụp từ bản \`npm start\`: \`web-hud-captions.png\` (phụ đề, nhãn phím), \`web-settings.png\` (đổi phím, tùy chọn tiếp cận), \`web-leaderboard.png\` (bảng xếp hạng), \`web-big-text.png\` (chữ lớn + bảng màu dễ phân biệt). \`bench.json\` sinh bằng \`npm run bench\` trên máy phát triển (xem renderer và os trong file). Chưa kiểm chứng: chơi tay đủ 3 đêm, âm thanh nghe thật, rung camera và chớp màn hình nhìn tận mắt, số đo trên máy chấm của giảng viên (xem README, phần "Giới hạn").
 `;
 writeFileSync(join(OUT, "RESULTS.md"), md);
 console.log(`\nGhi ${join(OUT, "RESULTS.md")}. Không đạt: ${failed}`);

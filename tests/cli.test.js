@@ -71,8 +71,8 @@ test("R1: CLI với scenario + inputs ra đúng sự kiện (nhặt đom đóm)"
 
 test("R12: game.contract.json khớp số liệu thật trong code và đủ trường bắt buộc", () => {
   const c = JSON.parse(readFileSync("game.contract.json", "utf8"));
-  assert.equal(c.contract_version, "1.2");
-  for (const k of ["team", "build_cmd", "run_cmd", "headless_cmd"]) assert.ok(typeof c[k] === "string" && c[k].length > 0, k);
+  assert.equal(c.contract_version, "1.3");
+  for (const k of ["team", "build_cmd", "run_cmd", "headless_cmd", "bench_cmd", "soak_cmd"]) assert.ok(typeof c[k] === "string" && c[k].length > 0, k);
   assert.deepEqual(c.tuning, TUNING);
   assert.equal(c.tuning.lantern_count_night1, 5);
   for (const k of ["dash_speed", "dash_duration_s", "dash_cooldown_s", "night2_duration_s", "night3_duration_s", "fuel_max", "fuel_decay_per_s", "fuel_per_mote", "relight_cost", "win_ratio", "drain_per_s", "low_fuel_threshold", "capacity_max"]) assert.ok(k in c.tuning, k);

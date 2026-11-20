@@ -33,12 +33,14 @@ export const DEFAULT_INPUT = () => ({
 export const lanternIdsFor = (night) => MAPS[night].lanterns.map((_, i) => `L${i + 1}`);
 
 export class Game {
-  constructor({ seed = 0, night = 1, scenario = {} } = {}) {
+  // bench (Phase 4): chế độ đo hiệu năng, mặc định tắt nên đầu ra headless không đổi. Xem step().
+  constructor({ seed = 0, night = 1, scenario = {}, bench = false } = {}) {
     const map = MAPS[night];
     if (!map) throw new Error(`night không hợp lệ: ${night}`);
     validateScenario(scenario, lanternIdsFor(night));
     this.map = map;
     this.night = night;
+    this.bench = bench === true;
     this.rng = mulberry32(seed);
     this.tick = 0; // đếm mọi bước (kể cả khi tạm dừng)
     this.simTick = 0; // chỉ đếm bước gameplay
@@ -239,6 +241,7 @@ export class Game {
     this.prev = { jump: !!input.jump, interact: !!input.interact, pulse: !!input.pulse, dash: !!input.dash, pause: !!input.pause };
     if (this.state !== "playing") return this.events;
     this.tick++;
+    if (this.bench) return this.stepBench();
 
     // 1. Pause trước; vừa tạm dừng thì dừng bước ở đây.
     if (e.pause) {
@@ -266,6 +269,15 @@ export class Game {
     if (!waiting) this.contacts(); // 9
     this.spawns(); // 10
     this.checkEnd(); // 11
+    return this.events;
+  }
+
+  // Chế độ benchmark (Ticket-04): tắt sinh thêm thực thể, sát thương, nhặt, hao dầu, điều kiện kết thúc; Mây đứng yên.
+  // Bóng Mực vẫn di chuyển theo luật wander (không phát hiện Mây, vì Mây đứng giữa đảo).
+  stepBench() {
+    this.simTick++;
+    this.updateZones();
+    for (const s of this.shades) this.updateShade(s);
     return this.events;
   }
 
@@ -608,7 +620,7 @@ export class Game {
       else if (!l || !l.lit || l.fuelU >= LOW_U || dist2(s.pos, l.pos) > W.drain_radius) s.state = "wander";
       else return; // đứng yên hút dầu
     }
-    if (s.state === "wander" && d <= W.shade_detect) s.state = "chase";
+    if (s.state === "wander" && d <= W.shade_detect && !this.bench) s.state = "chase";
     else if (s.state === "chase" && d > W.shade_lose) s.state = "wander";
     if (s.state === "chase") {
       if (d <= 0) return;
