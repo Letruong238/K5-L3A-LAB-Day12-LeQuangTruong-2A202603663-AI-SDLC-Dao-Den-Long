@@ -7,7 +7,7 @@ export class ContractError extends Error {
   }
 }
 
-export const SHADE_STATES = ["spawning", "wander", "chase", "recoil", "stunned"];
+export const SHADE_STATES = ["spawning", "wander", "chase", "recoil", "stunned", "drain"];
 export const DRIFTER_STATES = ["idle", "chase", "flee"];
 
 const isObj = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
@@ -47,7 +47,7 @@ export function validateScenario(data, lanternIds) {
     const p = data.player;
     if (!isObj(p)) fail("scenario.player phải là object");
     if ("pos" in p && !isVec(p.pos, 3)) fail("scenario.player.pos phải là [x, y, z]");
-    for (const k of ["carried", "flames", "invuln_ticks", "dash_cd_ticks", "pulse_cd_ticks", "charm_ticks"]) {
+    for (const k of ["carried", "flames", "invuln_ticks", "dash_cd_ticks", "pulse_cd_ticks", "charm_ticks", "successful_lights"]) {
       if (k in p && !isNat(p[k])) fail(`scenario.player.${k} phải là số nguyên >= 0`);
     }
   }
@@ -65,6 +65,7 @@ export function validateScenario(data, lanternIds) {
       if ("id" in s && typeof s.id !== "string") fail(`${where}.id phải là chuỗi`);
       if ("state" in s && !SHADE_STATES.includes(s.state)) fail(`${where}.state phải là một trong ${SHADE_STATES.join("/")}`);
       if ("state_ticks_left" in s && !isNat(s.state_ticks_left)) fail(`${where}.state_ticks_left phải là số nguyên >= 0`);
+      if ("target_lantern_id" in s && !lanternIds.includes(s.target_lantern_id)) fail(`${where}.target_lantern_id không có trong màn: ${s.target_lantern_id}`);
     });
     const ids = data.shades.filter((s) => s.id).map((s) => s.id);
     if (new Set(ids).size !== ids.length) fail("scenario.shades có id trùng");
@@ -98,6 +99,9 @@ export function validateScenario(data, lanternIds) {
       if ("pos" in l && !isVec(l.pos, 3)) fail(`${where}.pos phải là [x, y, z]`);
       if ("lit" in l && typeof l.lit !== "boolean") fail(`${where}.lit phải là boolean`);
       if ("deposited" in l && !isNat(l.deposited)) fail(`${where}.deposited phải là số nguyên >= 0`);
+      if ("fuel" in l && !(isNum(l.fuel) && l.fuel >= 0 && l.fuel <= 100)) fail(`${where}.fuel phải là số trong [0, 100]`);
+      if ("ever_lit" in l && typeof l.ever_lit !== "boolean") fail(`${where}.ever_lit phải là boolean`);
+      if ("relit_count" in l && !isNat(l.relit_count)) fail(`${where}.relit_count phải là số nguyên >= 0`);
     });
   }
   if ("time_left_s" in data && !(isNum(data.time_left_s) && data.time_left_s >= 0)) fail("scenario.time_left_s phải là số >= 0");

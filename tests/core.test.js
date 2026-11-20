@@ -14,7 +14,7 @@ test("R1: --ticks N chạy đúng N bước, có snapshot tick 0, night_start v�
   assert.equal(end(lines).ticks, 100);
   assert.equal(end(lines).state, "playing");
   assert.equal(snaps(lines).length, 11); // 0,10,...,100
-  near(last(lines).time_left_s, 300 - 100 / 60);
+  near(last(lines).time_left_s, 240 - 100 / 60); // Ticket-03: Đêm 1 còn 240 s
   assert.deepEqual(events(lines, "night_start")[0].data, { night: 1 });
 });
 
@@ -81,25 +81,24 @@ test("R3: đầy carry_capacity thì không nhặt thêm", () => {
 // ---- R4 ----
 const lit4 = lit("L2", "L3", "L4", "L5");
 
-test("R4: nạp đủ 10 thì deposit, lantern_lit, thắng all_lit; điểm theo công thức chuẩn", () => {
+test("R4: nạp đủ 10 thì deposit, lantern_lit (relight:false), đèn đầy dầu; KHÔNG kết thúc đêm (Ticket-03 bỏ thắng sớm)", () => {
   const scn = base({ player: { carried: 10 }, lanterns: [{ id: "L1", pos: [0, 0, 1] }, ...lit4] });
   const lines = run(scn, press(0, "interact"), 10);
   assert.deepEqual(events(lines, "deposit")[0].data, { lantern_id: "L1", amount: 10, deposited: 10 });
-  assert.equal(events(lines, "lantern_lit")[0].data.lantern_id, "L1");
-  assert.deepEqual(events(lines, "game_over")[0].data, { result: "won", reason: "all_lit" });
-  assert.equal(end(lines).state, "won");
-  assert.equal(end(lines).ticks, 1);
-  // 10 đom đóm x 10 + 100 (đèn) + floor(299.98 s) x 2 + 50 x 3 lửa
-  assert.equal(end(lines).score, 100 + 100 + 299 * 2 + 150);
+  assert.deepEqual(events(lines, "lantern_lit")[0].data, { lantern_id: "L1", relight: false });
+  assert.equal(events(lines, "game_over").length, 0); // đủ đèn không còn kết thúc đêm
+  assert.equal(end(lines).state, "playing");
+  assert.equal(last(lines).score, 10 * 5 + 100); // 10 đom đóm x 5 + thắp lần đầu +100 (Ticket-03)
+  assert.equal(at(lines, 1).lanterns[0].fuel, 100);
 });
 
-test("R4: nạp một phần thì đèn chưa sáng, được 10 điểm mỗi đom đóm nạp", () => {
+test("R4: nạp một phần thì đèn chưa sáng, được 5 điểm mỗi đom đóm nạp (Ticket-03: trước là 10)", () => {
   const scn = base({ player: { carried: 4 }, lanterns: [{ id: "L1", pos: [0, 0, 1] }] });
   const lines = run(scn, press(0, "interact"), 5);
   assert.deepEqual(events(lines, "deposit")[0].data, { lantern_id: "L1", amount: 4, deposited: 4 });
   assert.equal(events(lines, "lantern_lit").length, 0);
   assert.equal(last(lines).lanterns[0].deposited, 4);
-  assert.equal(last(lines).score, 40);
+  assert.equal(last(lines).score, 20);
   assert.equal(last(lines).player.carried, 0);
 });
 
@@ -108,20 +107,27 @@ test("R4: giữ interact liên tục chỉ nạp một lần (cạnh lên)", () 
   assert.equal(events(run(scn, [{ tick: 0, interact: true }], 30), "deposit").length, 1);
 });
 
-test("R4: nhấn lại thì nạp tiếp, min(đang mang, còn thiếu) vào một đèn", () => {
+test("R4: nhấn lại: đèn vừa thắp hao dầu mỗi tick nên luôn là đèn nhận được gần nhất, được châm dầu trước (Ticket-03)", () => {
+  // Trước Ticket-03: lần hai nạp vào L2 vì L1 đã sáng. Nay L1 luôn hao 1 đơn vị trước bước tương tác nên chưa đầy,
+  // mỗi lần bấm châm thêm 1 đom đóm (ceil(0.03 / 10) = 1) vào L1 vì L1 gần hơn L2.
   const scn = base({ player: { carried: 14 }, lanterns: [{ id: "L1", pos: [0, 0, 1] }, { id: "L2", pos: [0, 0, 1.5] }] });
-  const lines = run(scn, [...press(0, "interact"), ...press(2, "interact")], 10);
-  assert.deepEqual(events(lines, "deposit").map((e) => e.data), [
-    { lantern_id: "L1", amount: 10, deposited: 10 },
-    { lantern_id: "L2", amount: 4, deposited: 4 },
+  const lines = run(scn, [...press(0, "interact"), ...press(2, "interact"), ...press(4, "interact")], 10);
+  assert.deepEqual(events(lines, "deposit").map((e) => e.data), [{ lantern_id: "L1", amount: 10, deposited: 10 }]);
+  assert.deepEqual(events(lines, "refuel").map((e) => e.data), [
+    { lantern_id: "L1", amount: 1, fuel: 100 },
+    { lantern_id: "L1", amount: 1, fuel: 100 },
   ]);
+  assert.equal(last(lines).player.carried, 2);
 });
 
-test("R4: đèn gần nhất nhận trước; bằng nhau thì id nhỏ hơn; chỉ xét đèn chưa sáng", () => {
+test("R4: đèn gần nhất nhận trước; bằng nhau thì id nhỏ hơn; đèn sáng chưa đầy dầu cũng được xét", () => {
   const tie = base({ player: { carried: 3 }, lanterns: [{ id: "L1", pos: [0, 0, 1] }, { id: "L2", pos: [0, 0, -1] }] });
   assert.equal(events(run(tie, press(0, "interact"), 3), "deposit")[0].data.lantern_id, "L1");
-  const skip = base({ player: { carried: 3 }, lanterns: [{ id: "L1", pos: [0, 0, 1], lit: true }, { id: "L2", pos: [0, 0, 1.9] }] });
-  assert.equal(events(run(skip, press(0, "interact"), 3), "deposit")[0].data.lantern_id, "L2");
+  // L1 sáng nhưng fuel 50 (chưa đầy) và gần hơn: nhận châm dầu. Ticket-02 trước đây bỏ qua đèn đã sáng.
+  const lit1 = base({ player: { carried: 3 }, lanterns: [{ id: "L1", pos: [0, 0, 1], lit: true, fuel: 50 }, { id: "L2", pos: [0, 0, 1.9] }] });
+  const lines = run(lit1, press(0, "interact"), 3);
+  assert.equal(events(lines, "refuel")[0].data.lantern_id, "L1");
+  assert.equal(events(lines, "deposit").length, 0);
 });
 
 test("R4: ngoài interact_radius (2.0) thì không nạp", () => {
@@ -165,7 +171,9 @@ test("R6: tỏa sáng choáng Bóng Mực trong 5 m, đẩy 4 m trong 15 tick, t
   near(at(lines, 100).shades[0].pos[0], 7, 0.01); // hết đẩy thì đứng yên
   assert.notEqual(at(lines, 1).shades[1].state, "stunned");
   assert.equal(at(lines, 120).shades[0].state, "stunned"); // choáng đúng 120 tick
-  assert.equal(at(lines, 121).shades[0].state, "chase");
+  // Ticket-03 thay luật: hết choáng thì về wander (trước đây là chase nếu cách <= 18 m), rồi mới chase lại
+  assert.equal(at(lines, 121).shades[0].state, "wander");
+  assert.equal(at(lines, 122).shades[0].state, "chase");
 });
 
 test("R6: khoảng cách tới tâm tỏa sáng là 3D (chân Mây + 0.8 m), bán kính 5 m", () => {
@@ -223,11 +231,12 @@ test("R8: hết giờ thì thua dawn", () => {
   assert.equal(last(lines).time_left_s, 0);
 });
 
-test("R8: thắp đèn cuối đúng tick hết giờ vẫn thắng", () => {
-  const scn = base({ time_left_s: 1 / 60, player: { carried: 10 }, lanterns: [{ id: "L1", pos: [0, 0, 1] }, ...lit4] });
-  const lines = run(scn, press(0, "interact"), 5);
-  assert.deepEqual(events(lines, "game_over")[0].data, { result: "won", reason: "all_lit" });
-  assert.equal(end(lines).score, 100 + 100 + 0 + 150);
+test("R8: thắp đủ đèn không còn kết thúc đêm; thắng chỉ khi bình minh (Ticket-03 thay luật thắng sớm)", () => {
+  const scn = base({ time_left_s: 2, player: { carried: 10 }, lanterns: [{ id: "L1", pos: [0, 0, 1] }, ...lit4] });
+  const lines = run(scn, press(0, "interact"), 200);
+  assert.equal(at(lines, 60).state, "playing"); // đủ 5/5 đèn mà vẫn chưa kết thúc
+  assert.deepEqual(events(lines, "game_over")[0].data, { result: "won", reason: "dawn_survived" });
+  assert.equal(end(lines).ticks, 120);
 });
 
 test("R8: hết lửa luôn thua no_flames, kể cả khi đủ đèn sáng", () => {
@@ -238,11 +247,11 @@ test("R8: hết lửa luôn thua no_flames, kể cả khi đủ đèn sáng", ()
   assert.equal(end(lines).score, 0); // thua thì không có điểm thưởng
 });
 
-test("R8: Bóng Mực đứng cạnh Mây lúc thắp đèn bị đẩy ra và không gây sát thương, nên vẫn thắng", () => {
+test("R8: Bóng Mực đứng cạnh Mây lúc thắp đèn bị đẩy ra và không gây sát thương", () => {
   const scn = base({ player: { carried: 10, flames: 1 }, lanterns: [{ id: "L1", pos: [0, 0, 1] }, ...lit4], shades: [{ pos: [0.5, 1, 0] }] });
   const lines = run(scn, press(0, "interact"), 5);
-  assert.deepEqual(events(lines, "game_over")[0].data, { result: "won", reason: "all_lit" });
   assert.equal(events(lines, "player_hit").length, 0);
+  assert.equal(end(lines).state, "playing"); // Ticket-03: không còn thắng sớm
 });
 
 // ---- R9 ----

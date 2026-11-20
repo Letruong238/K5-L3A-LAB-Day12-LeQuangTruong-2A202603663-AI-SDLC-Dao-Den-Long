@@ -1,4 +1,5 @@
 // Bản đồ chuẩn của 3 Đêm (Ticket-02, Phần 2). Góc đo từ +X ngược chiều kim đồng hồ: x = cx + r·cos, z = cz + r·sin.
+import { TUNING as T } from "./tuning.js";
 const rad = (d) => (d * Math.PI) / 180;
 const polar = (r, deg, cx = 0, y = 0, cz = 0) => [cx + r * Math.cos(rad(deg)), y, cz + r * Math.sin(rad(deg))];
 const ring = (n, r, startDeg, stepDeg, cx = 0, y = 0, cz = 0) =>
@@ -12,7 +13,7 @@ const pad = (pos, vy, h, dir) => {
 const night1 = {
   night: 1,
   name: "Đảo Bến",
-  duration_s: 300,
+  duration_s: T.night1_duration_s,
   start: [0, 0, 0],
   lanterns: [[0, 0, 25], [23.8, 0, 7.7], [14.7, 0, -20.2], [-14.7, 0, -20.2], [-23.8, 0, 7.7]],
   motePoints: [...ring(8, 12, 0, 45), ...ring(16, 33, 0, 22.5)],
@@ -30,7 +31,7 @@ const B_CENTER = [70, 0];
 const night2 = {
   night: 2,
   name: "Đảo Cau",
-  duration_s: 330,
+  duration_s: T.night2_duration_s,
   start: [0, 0, 0],
   lanterns: [[0, 0, 20], [17, 0, -10], [-17, 0, -10], [70, 0, 20], [87, 0, -10], [53, 0, -10]],
   motePoints: [
@@ -58,7 +59,7 @@ const RAMP_ANGLES = [30, 150];
 const night3 = {
   night: 3,
   name: "Đảo Chuông",
-  duration_s: 360,
+  duration_s: T.night3_duration_s,
   start: [0, 0, -30],
   lanterns: [[0, 6, 6], [18, 3, 10], [-18, 3, 10], [35, 0, -10], [-35, 0, -10], [20, 0, -35], [-20, 0, -35]],
   motePoints: [...ring(18, 34, 0, 20), ...ring(8, 18, 20, 20, 0, 3), ...ring(4, 5, 45, 90, 0, 6)],

@@ -6,6 +6,7 @@
 <title>Đảo Đèn Lồng</title>
 <style>
   :root { --sky:#0E1430; --fog:#1B2350; --lamp:#FFB347; --core:#FFE9B0; --gold:#F2C14E; --danger:#FF5A5F; --text:#F5F1E6; --scarf:#C8102E; }
+  body.cb { --danger:#FFFFFF; } /* bảng màu dễ phân biệt: cảnh báo UI đổi sang trắng kèm biểu tượng ⚠ */
   html, body { margin:0; height:100%; overflow:hidden; background:var(--sky); font-family:system-ui,sans-serif; color:var(--text); user-select:none; }
   canvas { display:block; }
   .hud { position:fixed; pointer-events:none; text-shadow:0 1px 4px #000; font-size:18px; }
@@ -56,11 +57,11 @@
 <div id="arrow"></div>
 <div id="toast" class="hud"></div>
 <div id="fps" class="hud"></div>
-<div id="help" class="hud">WASD đi · Space nhảy · Shift lướt · E nạp đèn · F tỏa sáng · kéo chuột hoặc ← → xoay · Esc/P tạm dừng</div>
+<div id="help" class="hud">WASD đi · Space nhảy · Shift lướt · E nạp/châm dầu · F tỏa sáng · kéo chuột hoặc ← → xoay · Esc/P tạm dừng</div>
 
 <div id="menu" class="overlay show">
   <h1>Đảo Đèn Lồng</h1>
-  <p class="quote">Mây, người giữ đèn nhỏ tuổi, phải thắp lại ba hòn đảo trước khi trời sáng.</p>
+  <p class="quote">Mây, người giữ đèn nhỏ tuổi, phải giữ cho ba hòn đảo sáng đèn tới bình minh. Đèn thắp rồi vẫn cạn dầu: hãy châm thêm đom đóm, và coi chừng Bóng Mực hút dầu.</p>
   <button id="b-play">Bắt đầu</button>
   <button id="b-menu-settings" class="sec">Cài đặt</button>
 </div>
@@ -95,6 +96,7 @@
   <h2>Cài đặt</h2>
   <label>Âm lượng <input id="s-vol" type="range" min="0" max="1" step="0.05"><span id="s-vol-v"></span></label>
   <label>Độ nhạy chuột <input id="s-sens" type="range" min="0.2" max="2" step="0.1"><span id="s-sens-v"></span></label>
+  <label>Bảng màu dễ phân biệt <input id="s-cb" type="checkbox"></label>
   <button id="b-settings-back">Xong</button>
 </div>
 

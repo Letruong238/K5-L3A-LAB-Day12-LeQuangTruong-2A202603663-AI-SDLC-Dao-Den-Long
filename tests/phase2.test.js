@@ -310,8 +310,8 @@ test("S9: Đêm 3 xuất phát ở (0,0,-30), 7 đèn, 30 điểm đom đóm; Đ
   const n2 = snaps(run({}, null, 0, { night: 2 }))[0];
   assert.equal(n2.lanterns.length, 6);
   assert.equal(n2.charms.length, 1);
-  assert.equal(n2.time_left_s, 330);
-  assert.equal(n3.time_left_s, 360);
+  assert.equal(n2.time_left_s, 270); // Ticket-03: 240/270/300 s
+  assert.equal(n3.time_left_s, 300);
 });
 
 // ---------- S10: Gió Lạc ----------

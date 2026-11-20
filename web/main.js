@@ -11,7 +11,7 @@ const OVERLAYS = ["menu", "intro", "result", "dawn", "pause", "settings"];
 const showOverlay = (id) => OVERLAYS.forEach((o) => $(o).classList.toggle("show", o === id));
 
 // ---------- cài đặt (lưu giữa các lần mở game) ----------
-const settings = { volume: 0.6, sens: 1 };
+const settings = { volume: 0.6, sens: 1, colorblind: false };
 try {
   Object.assign(settings, JSON.parse(localStorage.getItem("ddl.settings") || "{}"));
 } catch {
@@ -25,6 +25,10 @@ function saveSettings() {
   }
 }
 setVolume(settings.volume);
+if (new URLSearchParams(location.search).get("cb") === "1") settings.colorblind = true; // đường tắt kiểm thử: /?cb=1
+document.body.classList.toggle("cb", settings.colorblind);
+const shadeRimColor = () => (settings.colorblind ? 0x00b3ff : C.shadeRim); // bảng màu dễ phân biệt: #7A3CFF -> #00B3FF
+const warn = (txt) => (settings.colorblind ? `⚠ ${txt}` : txt);
 
 // ---------- cảnh ----------
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -120,9 +124,9 @@ const pools = { motes: new Map(), shades: new Map(), drifters: new Map() };
 let toastTimer = 0;
 
 const INFO = {
-  1: { name: "Đảo Bến", detail: "Hòn đảo tròn đầu tiên, năm ngọn đèn đang tắt.", quote: "“Đi chậm thôi, cháu. Sương đen sợ ánh sáng, nhưng nó kiên nhẫn lắm.” (Ông Đăng)" },
-  2: { name: "Đảo Cau", detail: "Hai đảo nối nhau bằng cầu tre không lan can, có bục nhảy và Gió Lạc hay cướp đom đóm.", quote: "“Cầu tre hẹp lắm, nhìn đường mà đi. Gặp bùa đỏ thì cứ nhặt.” (Ông Đăng)" },
-  3: { name: "Đảo Chuông", detail: "Ba tầng đảo, dốc, bục nhảy và tháp chuông. Cứ nửa phút lại có một cơn gió mạnh.", quote: "“Tiếng chuông này lâu lắm rồi chưa ai nghe. Thắp hết đèn, Mây nhé.” (Ông Đăng)" },
+  1: { name: "Đảo Bến", detail: "Hòn đảo tròn đầu tiên, năm ngọn đèn đang tắt. Giữ ít nhất 3 đèn sáng tới bình minh (240 s).", quote: "“Đi chậm thôi, cháu. Sương đen sợ ánh sáng, nhưng nó kiên nhẫn lắm.” (Ông Đăng)" },
+  2: { name: "Đảo Cau", detail: "Hai đảo nối nhau bằng cầu tre không lan can, có bục nhảy và Gió Lạc hay cướp đom đóm. Giữ ít nhất 4 đèn sáng tới bình minh (270 s).", quote: "“Cầu tre hẹp lắm, nhìn đường mà đi. Gặp bùa đỏ thì cứ nhặt.” (Ông Đăng)" },
+  3: { name: "Đảo Chuông", detail: "Ba tầng đảo, dốc, bục nhảy và tháp chuông. Cứ nửa phút lại có một cơn gió mạnh. Giữ ít nhất 5 đèn sáng tới bình minh (300 s).", quote: "“Tiếng chuông này lâu lắm rồi chưa ai nghe. Thắp hết đèn, Mây nhé.” (Ông Đăng)" },
 };
 
 function toast(msg) {
@@ -139,9 +143,9 @@ function clearPools() {
 }
 
 // Dựng đêm n (nền hiện sau màn giới thiệu); chưa chạy logic tới khi bấm "Vào đêm".
-function prepare(n) {
+function prepare(n, scenario = {}) {
   night = n;
-  game = new Game({ seed: (Date.now() & 0x7fffffff) >>> 0, night: n });
+  game = new Game({ seed: (Date.now() & 0x7fffffff) >>> 0, night: n, scenario });
   if (world) world.dispose();
   clearPools();
   world = buildWorld(scene, game);
@@ -161,10 +165,11 @@ function beginPlay() {
   unlock();
   showOverlay(null);
   screen = "play";
-  toast(`Đêm ${night}: thắp ${game.lanterns.length} ngọn đèn!`);
+  toast(`Đêm ${night}: giữ ít nhất ${need()} đèn sáng tới bình minh!`);
 }
 
 // ---------- tạm dừng ----------
+const need = () => Math.ceil(T.win_ratio * game.lanterns.length); // số đèn tối thiểu phải còn sáng ở bình minh
 const stepWith = (over) => game.step({ ...DEFAULT_INPUT(), ...over });
 function pauseGame() {
   if (screen !== "play" || game.state !== "playing") return;
@@ -232,13 +237,16 @@ function onEvent(ev) {
   switch (ev.name) {
     case "mote_picked": sfx.mote(); break;
     case "deposit": sfx.deposit(); break;
-    case "lantern_lit": sfx.lit(); toast("Một ngọn đèn đã sáng!"); break;
+    case "lantern_lit": sfx.lit(); toast(ev.data.relight ? "Đèn được thắp lại!" : "Một ngọn đèn đã sáng!"); break;
+    case "refuel": sfx.deposit(); break;
+    case "lantern_out": sfx.lose(); toast(warn("Một ngọn đèn đã tắt!")); break;
+    case "fuel_drain": toast(warn("Bóng Mực đang hút dầu của đèn!")); break;
     case "pulse":
       sfx.pulse();
       ringT = 0;
       ring.position.set(game.player.pos[0], game.player.pos[1] + 0.06, game.player.pos[2]);
       break;
-    case "player_hit": sfx.hit(); toast(ev.data.by === "fall" ? "Mây rơi khỏi đảo!" : "Bóng Mực chạm vào Mây!"); break;
+    case "player_hit": sfx.hit(); toast(warn(ev.data.by === "fall" ? "Mây rơi khỏi đảo!" : "Bóng Mực chạm vào Mây!")); break;
     case "dash": sfx.dash(); break;
     case "charm_picked": sfx.charm(); toast("Bùa Gió! Chạy nhanh và lướt không cần chờ."); break;
     case "drifter_steal": sfx.steal(); toast("Gió Lạc cướp đom đóm của Mây!"); break;
@@ -253,8 +261,11 @@ function finish(d) {
   const won = d.result === "won";
   (won ? sfx.win : sfx.lose)();
   setTimeout(() => {
-    $("res-title").textContent = won ? "Đảo đã sáng trở lại!" : "Bóng tối đã nuốt hòn đảo";
-    $("res-detail").textContent = won ? `Mây đã thắp sáng cả ${game.lanterns.length} ngọn đèn.` : d.reason === "dawn" ? "Trời sáng mà đèn chưa thắp hết." : "Mây đã hết ngọn lửa.";
+    const litNow = game.lanterns.filter((l) => l.lit).length;
+    $("res-title").textContent = won ? "Bình minh! Đảo vẫn sáng" : "Bóng tối đã nuốt hòn đảo";
+    $("res-detail").textContent = won
+      ? `Mây đã giữ ${litNow}/${game.lanterns.length} ngọn đèn sáng tới bình minh.`
+      : d.reason === "dawn" ? `Trời sáng mà chỉ còn ${litNow}/${game.lanterns.length} đèn sáng (cần ít nhất ${need()}).` : "Mây đã hết ngọn lửa.";
     if (won) totalScore += game.score;
     $("res-score").textContent = `Điểm đêm này: ${game.score}${won ? ` · Tổng: ${totalScore}` : ""}`;
     $("b-next").style.display = won && night < 3 ? "" : "none";
@@ -315,13 +326,24 @@ function syncScene(t) {
   const lit = game.lanterns.filter((l) => l.lit).length;
   game.lanterns.forEach((l, i) => {
     const v = world.lanterns[i];
-    if (l.lit !== v.lit) {
-      v.lit = l.lit;
-      v.lampMat.color.setHex(l.lit ? C.lampCore : C.lampOff);
-      v.lampMat.emissive.setHex(l.lit ? C.lampOn : 0x000000);
-      v.light.intensity = l.lit ? 260 : 0;
-      v.zone.visible = l.lit;
-    }
+    const fuel = l.fuelU / W.fuel_units;
+    const low = l.lit && fuel < T.low_fuel_threshold;
+    const blinkOn = !low || Math.floor(t * 2) % 2 === 0; // fuel < 30: nhấp nháy chậm 1 Hz
+    v.lit = l.lit;
+    v.lampMat.color.setHex(l.lit ? C.lampCore : C.lampOff);
+    v.lampMat.emissive.setHex(l.lit ? C.lampOn : 0x000000);
+    v.lampMat.emissiveIntensity = l.lit ? 0.4 + 0.6 * Math.min(1, fuel / 100) : 1;
+    v.light.intensity = l.lit && blinkOn ? 60 + 200 * Math.min(1, fuel / 100) : 0;
+    v.lamp.visible = blinkOn;
+    v.lamp.scale.y = l.lit ? 1 : 0.8; // đèn tắt bị xẹp 20%
+    v.lamp.position.y = l.lit ? 2.95 : 2.95 - 0.115;
+    v.tear.forEach((m) => (m.visible = !l.lit)); // đèn tắt có vết rách trên giấy
+    v.zone.visible = l.lit && fuel >= T.low_fuel_threshold; // chỉ đèn fuel >= 30 có vùng an toàn
+    v.bar.visible = l.lit && blinkOn;
+    v.barFill.scale.x = Math.max(0.001, fuel / 100);
+    v.barFill.position.x = -0.62 * (1 - fuel / 100);
+    v.barFill.material.color.setHex(low ? (settings.colorblind ? 0xffffff : 0xff5a5f) : C.lampOn);
+    v.bar.lookAt(camera.position);
     if (!l.lit && l.deposited > 0) v.lampMat.emissive.setRGB(0.5 * (l.deposited / T.lantern_cost), 0.25 * (l.deposited / T.lantern_cost), 0);
   });
   ambient.intensity = 0.15 + 0.55 * (lit / game.lanterns.length);
@@ -373,7 +395,7 @@ function syncScene(t) {
     const grow = s.state === "spawning" ? 1 - s.left / W.shade_spawning_ticks : 1;
     v.mesh.scale.set(grow, grow * (stunned ? 0.5 : 1 + Math.sin(t * 6) * 0.08), grow);
     v.body.material.color.setHex(stunned ? C.shadeStun : C.shade);
-    v.rim.material.color.setHex(stunned ? C.shadeStun : C.shadeRim);
+    v.rim.material.color.setHex(stunned ? C.shadeStun : shadeRimColor());
   }
   for (const [id, v] of pools.shades) if (!seenS.has(id)) { scene.remove(v.mesh); pools.shades.delete(id); }
 
@@ -438,9 +460,10 @@ function updateHud(p, lit) {
   $("flames").textContent = "🔥".repeat(p.flames) + "·".repeat(Math.max(0, T.flames - p.flames));
   $("timer").textContent = `${String(Math.floor(secs / 60)).padStart(2, "0")}:${String(secs % 60).padStart(2, "0")}`;
   $("timer").classList.toggle("low", secs <= 30);
-  $("stats").innerHTML = `Đèn <b>${lit}/${game.lanterns.length}</b><br>Điểm <b>${game.score}</b>`;
+  if (secs <= 30) $("timer").textContent = warn($("timer").textContent);
+  $("stats").innerHTML = `Đèn sáng <b>${lit}/${game.lanterns.length}</b> (cần ≥ ${need()})<br>Điểm <b>${game.score}</b><br>Mang <b>${p.carried}/${game.capacity()}</b>`;
   const bar = $("motes");
-  if (bar.children.length !== T.carry_capacity) bar.innerHTML = "<i></i>".repeat(T.carry_capacity);
+  if (bar.children.length !== game.capacity()) bar.innerHTML = "<i></i>".repeat(game.capacity());
   [...bar.children].forEach((el, i) => el.classList.toggle("on", i < p.carried));
 
   const dashReady = p.charm > 0 || p.dashCd === 0;
@@ -453,10 +476,10 @@ function updateHud(p, lit) {
   $("charm").textContent = `Bùa Gió ${(p.charm / W.tps).toFixed(0)}s`;
 
   // Nhắc nạp đèn khi đứng gần đèn chưa sáng
-  const unlit = game.lanterns.filter((l) => !l.lit);
-  const close = unlit.find((l) => Math.hypot(l.pos[0] - p.pos[0], l.pos[2] - p.pos[2]) <= T.interact_radius && Math.abs(l.pos[1] - p.pos[1]) <= W.vertical_tol);
+  const unlit = game.lanterns.filter((l) => !l.lit || l.fuelU < T.low_fuel_threshold * W.fuel_units); // đèn tắt hoặc sắp cạn
+  const close = game.lanterns.find((l) => (!l.lit || l.fuelU < T.fuel_max * W.fuel_units) && Math.hypot(l.pos[0] - p.pos[0], l.pos[2] - p.pos[2]) <= T.interact_radius && Math.abs(l.pos[1] - p.pos[1]) <= W.vertical_tol);
   $("prompt").style.display = close && screen === "play" ? "block" : "none";
-  $("prompt").textContent = `E — Nạp ánh sáng (${p.carried}/${T.carry_capacity})`;
+  $("prompt").textContent = `E — ${close && close.lit ? "Châm dầu" : "Nạp ánh sáng"} (${p.carried}/${game.capacity()})`;
 
   // Mũi tên chỉ tới đèn chưa sáng gần nhất khi nó ngoài màn hình
   const arrow = $("arrow");
@@ -499,12 +522,18 @@ function openSettings(from) {
   $("s-sens").value = settings.sens;
   $("s-vol-v").textContent = `${Math.round(settings.volume * 100)}%`;
   $("s-sens-v").textContent = settings.sens.toFixed(1);
+  $("s-cb").checked = settings.colorblind;
   showOverlay("settings");
 }
 $("s-vol").addEventListener("input", (e) => {
   settings.volume = Number(e.target.value);
   setVolume(settings.volume);
   $("s-vol-v").textContent = `${Math.round(settings.volume * 100)}%`;
+  saveSettings();
+});
+$("s-cb").addEventListener("change", (e) => {
+  settings.colorblind = e.target.checked;
+  document.body.classList.toggle("cb", settings.colorblind);
   saveSettings();
 });
 $("s-sens").addEventListener("input", (e) => {
@@ -519,7 +548,14 @@ showOverlay("menu");
 screen = "menu";
 const quick = Number(new URLSearchParams(location.search).get("night"));
 if ([1, 2, 3].includes(quick)) {
-  prepare(quick);
+  // ?night=1&demo=1: dựng sẵn đèn sáng với lượng dầu khác nhau và một Bóng Mực đang hút dầu (để chụp ảnh kiểm tra)
+  const demo = new URLSearchParams(location.search).get("demo") === "1";
+  prepare(quick, demo ? {
+    random_shades: false,
+    lanterns: [{ id: "L1", pos: [0, 0, 8], lit: true, fuel: 20 }, { id: "L2", pos: [8, 0, 8], lit: true, fuel: 60 }, { id: "L3", pos: [-8, 0, 8], lit: true, fuel: 100 }, { id: "L4", pos: [8, 0, 16], ever_lit: true }],
+    shades: [{ pos: [0.5, 1, 9], state: "drain", target_lantern_id: "L1" }],
+    player: { carried: 6 },
+  } : {});
   beginPlay();
 }
 frame();

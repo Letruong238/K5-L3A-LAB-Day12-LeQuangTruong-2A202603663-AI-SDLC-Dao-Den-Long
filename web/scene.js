@@ -104,6 +104,19 @@ export function buildWorld(scene, game) {
     lamp.position.y = 2.95;
     const light = new THREE.PointLight(C.lampOn, 0, 34, 2);
     light.position.y = 3;
+    // Thanh dầu (chỉ hiện khi đèn sáng) và vết rách trên giấy (hiện khi đèn tắt)
+    const barBg = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 0.16), new THREE.MeshBasicMaterial({ color: 0x1b2350, transparent: true, opacity: 0.8, side: THREE.DoubleSide }));
+    const barFill = new THREE.Mesh(new THREE.PlaneGeometry(1.24, 0.1), new THREE.MeshBasicMaterial({ color: C.lampOn, side: THREE.DoubleSide }));
+    barFill.position.z = 0.005;
+    const bar = new THREE.Group();
+    bar.add(barBg, barFill);
+    bar.position.y = 4.1;
+    bar.visible = false;
+    const tear = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.18), new THREE.MeshBasicMaterial({ color: 0x0e1430, side: THREE.DoubleSide }));
+    tear.position.set(0.1, 2.9, 0.49);
+    tear.rotation.z = 0.5;
+    const tear2 = tear.clone();
+    tear2.position.set(-0.15, 3.15, -0.49);
     const zone = new THREE.Mesh(
       new THREE.RingGeometry(T.safe_radius - 0.1, T.safe_radius, 64),
       new THREE.MeshBasicMaterial({ color: C.lampOn, transparent: true, opacity: 0.16, side: THREE.DoubleSide })
@@ -111,9 +124,9 @@ export function buildWorld(scene, game) {
     zone.rotation.x = -Math.PI / 2;
     zone.position.y = 0.04;
     zone.visible = false;
-    g.add(pole, lamp, light, zone);
+    g.add(pole, lamp, light, zone, bar, tear, tear2);
     root.add(g);
-    return { group: g, lampMat, light, zone, lit: false };
+    return { group: g, lamp, lampMat, light, zone, bar, barFill, tear: [tear, tear2], lit: false };
   });
 
   // Bùa Gió
