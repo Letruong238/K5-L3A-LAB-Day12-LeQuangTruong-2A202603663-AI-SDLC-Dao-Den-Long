@@ -90,9 +90,19 @@ test("L8: isoWithOffset cho đúng thời điểm và độ lệch múi giờ", 
   const d = new Date("2026-11-20T14:05:33.123Z");
   const s = isoWithOffset(d);
   assert.equal(Date.parse(s), d.getTime(), "cùng một thời điểm");
-  const off = -d.getTimezoneOffset();
+  const off = 0 - d.getTimezoneOffset(); // "0 -" thay vì dấu trừ đơn: tránh -0 khi máy ở UTC (CI), strictEqual coi 0 khác -0
   const m = s.match(/([+-])(\d{2}):(\d{2})$/);
   assert.equal((m[1] === "+" ? 1 : -1) * (Number(m[2]) * 60 + Number(m[3])), off);
+});
+
+test("L8b: isoWithOffset đúng ở nhiều múi giờ (UTC như CI, +07:00, +05:30, -05:00), kể cả múi giờ lệch 0", () => {
+  const code = 'import("./src/core/leaderboard.js").then((m) => console.log(m.isoWithOffset(new Date("2026-11-20T14:05:33.123Z"))))';
+  const cases = [["UTC", "2026-11-20T14:05:33.123+00:00"], ["Asia/Ho_Chi_Minh", "2026-11-20T21:05:33.123+07:00"], ["Asia/Kolkata", "2026-11-20T19:35:33.123+05:30"], ["America/New_York", "2026-11-20T09:05:33.123-05:00"]];
+  for (const [tz, want] of cases) {
+    const r = spawnSync(process.execPath, ["-e", code], { env: { ...process.env, TZ: tz }, encoding: "utf8" });
+    assert.equal(r.status, 0, r.stderr);
+    assert.equal(r.stdout.trim(), want, `TZ=${tz}`);
+  }
 });
 
 test("L9: lưu ra đĩa, mở lại vẫn còn; file hỏng thì bảng rỗng; mục hỏng bị bỏ", () => {
