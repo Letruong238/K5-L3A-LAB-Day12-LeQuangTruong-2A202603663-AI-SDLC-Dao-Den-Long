@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npm test >&2 || { echo 'Test dang do. Hay sua cho test xanh truoc khi ket thuc.' >&2; exit 2; }"
+          }
+        ]
+      }
+    ]
+  }
+}
