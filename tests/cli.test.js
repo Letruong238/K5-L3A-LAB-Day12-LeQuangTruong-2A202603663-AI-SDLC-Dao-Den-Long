@@ -53,7 +53,8 @@ test("R11: file inputs/scenario sai định dạng thoát mã 2, lỗi ra stderr
 test("R11: thiếu hoặc sai tham số thì thoát khác 0", () => {
   assert.notEqual(cli("--seed", "1").status, 0);
   assert.notEqual(cli("--seed", "x", "--ticks", "1", "--out", join(dir, "y")).status, 0);
-  assert.notEqual(cli("--seed", "1", "--night", "2", "--ticks", "1", "--out", join(dir, "y")).status, 0);
+  assert.notEqual(cli("--seed", "1", "--night", "4", "--ticks", "1", "--out", join(dir, "y")).status, 0);
+  assert.notEqual(cli("--seed", "1", "--night", "0", "--ticks", "1", "--out", join(dir, "y")).status, 0);
   assert.notEqual(cli("--bogus", "1").status, 0);
 });
 
@@ -70,8 +71,29 @@ test("R1: CLI với scenario + inputs ra đúng sự kiện (nhặt đom đóm)"
 
 test("R12: game.contract.json khớp số liệu thật trong code và đủ trường bắt buộc", () => {
   const c = JSON.parse(readFileSync("game.contract.json", "utf8"));
-  assert.equal(c.contract_version, "1.0");
+  assert.equal(c.contract_version, "1.1");
   for (const k of ["team", "build_cmd", "run_cmd", "headless_cmd"]) assert.ok(typeof c[k] === "string" && c[k].length > 0, k);
   assert.deepEqual(c.tuning, TUNING);
   assert.equal(c.tuning.lantern_count_night1, 5);
+  for (const k of ["dash_speed", "dash_duration_s", "dash_cooldown_s", "night2_duration_s", "night3_duration_s"]) assert.ok(k in c.tuning, k);
+});
+
+test("S14: CLI nhận --night 1, 2, 3 và ghi đúng night/số đèn vào snapshot", () => {
+  for (const [night, lanterns] of [[1, 5], [2, 6], [3, 7]]) {
+    const out = join(dir, `n${night}.jsonl`);
+    const r = cli("--seed", "1", "--night", String(night), "--ticks", "30", "--out", out);
+    assert.equal(r.status, 0, r.stderr);
+    const lines = readFileSync(out, "utf8").trim().split("\n").map((l) => JSON.parse(l));
+    assert.equal(lines[0].night, night);
+    assert.equal(lines[0].lanterns.length, lanterns);
+    assert.ok(lines.some((l) => l.name === "night_start" && l.data.night === night));
+  }
+});
+
+test("S13/S2: CLI đọc inputs có dash và pause", () => {
+  const out = join(dir, "dp.jsonl");
+  const inp = file("dp.json", { frames: [{ tick: 0, dash: true }, { tick: 1, dash: false }, { tick: 5, pause: true }, { tick: 6, pause: false }] });
+  assert.equal(cli("--seed", "1", "--night", "1", "--inputs", inp, "--ticks", "20", "--out", out).status, 0);
+  const names = readFileSync(out, "utf8").trim().split("\n").map((l) => JSON.parse(l)).filter((l) => l.type === "event").map((l) => l.name);
+  assert.deepEqual(names, ["night_start", "dash", "paused"]);
 });

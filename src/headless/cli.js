@@ -1,5 +1,5 @@
-// Lệnh headless theo Test Contract v1.0.
-// Dùng: node src/headless/cli.js --seed 1 --night 1 --ticks 600 --out out.jsonl
+// Lệnh headless theo Test Contract v1.1.
+// Dùng: node src/headless/cli.js --seed 1 --night 1 --ticks 600 --out out.jsonl   (night = 1, 2 hoặc 3)
 //        [--scenario s.json] [--inputs i.json] [--snapshot-every 10]
 // Mã thoát: 0 thành công, 1 lỗi tham số/chung, 2 file scenario/inputs sai.
 import { readFileSync, writeFileSync } from "node:fs";
@@ -55,7 +55,7 @@ try {
   const opts = parseArgs(process.argv.slice(2));
   const seed = intArg(opts, "seed", { required: true, min: -2147483648 });
   const night = intArg(opts, "night", { def: 1 });
-  if (night !== 1) usageError("chi ho tro --night 1");
+  if (![1, 2, 3].includes(night)) usageError("--night phai la 1, 2 hoac 3");
   const ticks = intArg(opts, "ticks", { required: true });
   const snapshotEvery = intArg(opts, "snapshot-every", { min: 1, def: 10 });
   if (!opts.out) usageError("thieu --out");
@@ -63,7 +63,7 @@ try {
   const scenario = opts.scenario ? readJson(opts.scenario, "scenario") : {};
   const inputs = opts.inputs ? validateInputs(readJson(opts.inputs, "inputs")) : null;
 
-  const lines = runHeadless({ seed, ticks, scenario, inputs, snapshotEvery });
+  const lines = runHeadless({ seed, night, ticks, scenario, inputs, snapshotEvery });
   writeFileSync(opts.out, lines.map((l) => JSON.stringify(l)).join("\n") + "\n");
   process.exit(0);
 } catch (e) {

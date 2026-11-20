@@ -1,5 +1,7 @@
 # Phase 1: giả định và tiêu chí nghiệm thu
 
+> Lưu ý: tài liệu này mô tả luật ở tag `phase-1`. Từ Phase 2, Ticket-02 thay các số liệu và một số luật (G2, G3, G5, G8 đến G10, G14 và điểm số). Xem bảng "Luật Phase 1 bị thay" ở [phase2-spec.md](phase2-spec.md).
+
 Nguồn yêu cầu: PRD-0 + Test Contract v1.0 (lab board, tab Phase 1).
 
 ## Giả định (chỗ PRD-0 mơ hồ, tự chọn và khai trong `game.contract.json`)
