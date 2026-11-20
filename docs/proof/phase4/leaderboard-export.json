@@ -1,0 +1,39 @@
+{
+  "entries": [
+    {
+      "name": "Mây_Nhỏ",
+      "score": 920,
+      "nights_won": 3,
+      "achieved_at": "2026-06-01T10:00:04.000+07:00",
+      "seed": 42
+    },
+    {
+      "name": "Binh_Minh",
+      "score": 850,
+      "nights_won": 3,
+      "achieved_at": "2026-06-01T10:00:00.000+07:00",
+      "seed": 42
+    },
+    {
+      "name": "Dau_Tien",
+      "score": 400,
+      "nights_won": 1,
+      "achieved_at": "2026-06-01T10:00:01.000+07:00",
+      "seed": 42
+    },
+    {
+      "name": "Ve_Sau",
+      "score": 400,
+      "nights_won": 1,
+      "achieved_at": "2026-06-01T10:00:02.000+07:00",
+      "seed": 42
+    },
+    {
+      "name": "Dem_Mot",
+      "score": 0,
+      "nights_won": 0,
+      "achieved_at": "2026-06-01T10:00:03.000+07:00",
+      "seed": 42
+    }
+  ]
+}
